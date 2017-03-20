@@ -221,6 +221,54 @@
 
 
 
+#pragma mark-------dispatch_barrier_async 插入队列
+- (void)test6{
+    //1.将任务插入队列中，会等待当前任务block体代码执行完毕，
+    //2.然后执行插入队列中的block体，并且暂停队列中的后续任务，
+    //3.等待插入队列的代码走完，会继续执行后续队列
+    //4.插入队列，提交完block体中的代码会继续执行后续代码，不会阻塞线程。
+    //5.不过智能用于自己创建的并行队列
+    //6.若用串行队列，和全局并行队列，则相当于dispatch_async函数
+    
+    dispatch_queue_t queue = dispatch_queue_create("queue", DISPATCH_QUEUE_CONCURRENT);
+    //提交第一个block，延时5s打印。
+    
+    NSLog(@"加入第一个队列");
+    dispatch_async(queue, ^{
+        NSLog(@"第一个block");
+    });
+    
+    NSLog(@"加入第二个队列");
+    //提交第二个block，也是延时2s打印
+    dispatch_async(queue, ^{
+        NSLog(@"第二个block开始");
+        [NSThread sleepForTimeInterval:2];
+        NSLog(@"第二个block结束");
+    });
+    
+    NSLog(@"插入block插入");
+    dispatch_barrier_async(queue, ^{
+        NSLog(@"这是插入的一个block");
+        [NSThread sleepForTimeInterval:2];
+        NSLog(@"睡眠2s完成");
+    });
+    
+    NSLog(@"加入第三个队列");
+    //提交第三个block
+    dispatch_async(queue, ^{
+        NSLog(@"第三个block");
+    });
+    
+    NSLog(@"加入第四个队列");
+    //提交第四个block
+    dispatch_async(queue, ^{
+        NSLog(@"第四个block");
+    });
+    
+    
+    
+}
+
 
 
 
