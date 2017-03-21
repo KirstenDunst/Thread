@@ -18,7 +18,7 @@
     [super viewDidLoad];
     // Do any additional setup after loading the view, typically from a nib.
     
-    [self test5];
+    [self test8];
     
     
 }
@@ -263,9 +263,123 @@
         NSLog(@"第四个block");
     });
     
+}
+
+#pragma mark-----------线程通信
+- (void)threadCommunication{
+//    // 回到主线程（方法内为主线程）
+//    [self performSelectorOnMainThread:@selector(downloadFinished:) withObject:image waitUntilDone:NO];
+//    
+//     [self performSelector:@selector(downloadFinished:) onThread:[NSThread mainThread] withObject:image waitUntilDone:YES];
+//    
+//    [self performSelectorInBackground:@selector(download) withObject:nil];
     
+    
+//    @synchronized(锁对象) { // 需要锁定的代码 }
+    @synchronized (self) {
+        // 需要锁定的代码
+    }
+}
+
+#pragma mark-------------线程依赖
+- (void)test7{
+    // 1.创建一个队列
+    // 一般情况下, 在做企业开发时候, 都会定义一个全局的自定义队列, 便于使用
+    NSOperationQueue *queue = [[NSOperationQueue alloc] init];
+    
+    // 2.添加一个操作下载第一张图片
+    __block UIImage *image1 = nil;
+    NSBlockOperation *op1 = [NSBlockOperation blockOperationWithBlock:^{
+        NSURL *url  = [NSURL URLWithString:@"http://imgcache.mysodao.com/img2/M04/8C/74/CgAPDk9dyjvS1AanAAJPpRypnFA573_700x0x1.JPG"];
+        NSData *data = [NSData dataWithContentsOfURL:url];
+        image1 = [UIImage imageWithData:data];
+    }];
+    
+    // 3.添加一个操作下载第二张图片
+    __block UIImage *image2 = nil;
+    NSBlockOperation *op2 = [NSBlockOperation blockOperationWithBlock:^{
+        NSURL *url  = [NSURL URLWithString:@"http://imgcache.mysodao.com/img1/M02/EE/B5/CgAPDE-kEtqjE8CWAAg9m-Zz4qo025-22365300.JPG"];
+        NSData *data = [NSData dataWithContentsOfURL:url];
+        image2 = [UIImage imageWithData:data];
+    }];
+    // 4.添加一个操作合成图片
+    NSBlockOperation *op3 = [NSBlockOperation blockOperationWithBlock:^{
+        UIGraphicsBeginImageContext(CGSizeMake(200, 200));
+        [image1 drawInRect:CGRectMake(0, 0, 100, 200)];
+        [image2 drawInRect:CGRectMake(100, 0, 100, 200)];
+        UIImage *res = UIGraphicsGetImageFromCurrentImageContext();
+        UIGraphicsEndImageContext();
+        
+        // 5.回到主线程更新UI
+        [[NSOperationQueue mainQueue] addOperationWithBlock:^{
+            //主线程更新UI
+//            self.imageView.image = res;
+        }];
+    }];
+    
+    // 6.添加依赖
+    
+    [op3 addDependency:op1];
+    [op3 addDependency:op2];
+    
+    // 7.添加操作到队列中
+    [queue addOperation:op1];
+    [queue addOperation:op2];
+    [queue addOperation:op3];
     
 }
+
+
+#pragma mark------------取消一个正在执行的线程
+- (void)test8{
+    // 创建线程 -- 新建状态
+    NSThread *thread = [[NSThread alloc] initWithTarget:self selector:@selector(demo) object:nil];
+    // 将线程添加到可调度线程池中，等等CPU调度
+    [thread start];
+    // 睡会
+    [NSThread sleepForTimeInterval:1.2];
+    // 取消线程
+    // cancel：方法仅仅是给线程标记为取消状态。但是要想真正取消线程的执行，必须在线程内部判断。
+    [thread cancel];
+}
+// 一个方法内部的代码是在同一个线程中执行的
+- (void)demo {
+    NSLog(@"睡会 = %@",[NSThread currentThread]);
+    if ([NSThread currentThread].isCancelled) {
+        NSLog(@"1...88");
+        return;
+    }
+    [NSThread sleepForTimeInterval:1.0];
+    // 在关键节点判断线程是否被取消
+    if ([NSThread currentThread].isCancelled) {
+        NSLog(@"2...88");
+        return;
+    }
+    for (NSInteger index = 0; index < 20; index ++) {
+        if ([NSThread currentThread].isCancelled) {
+            NSLog(@"3...88");
+            return;
+        }
+        // 在满足某个条件的时候，再睡
+        if (index == 10) {
+            NSLog(@"再睡");
+            // 睡到指定的时间
+            [NSThread sleepUntilDate:[NSDate dateWithTimeIntervalSinceNow:1.0]];
+        }
+        NSLog(@"%@--%zd",[NSThread currentThread],index);
+    }
+}
+
+
+/*
+ Q:如果某个ViewController里运行了一个线程，线程还没结束的时候，这个ViewController被pop了，
+ 线程不结束，viewController会一直保留不会被释放，
+ 这个时候再次进入这个viewController的时候会出现异常，
+ 现在的问题是：如何得到这个线程，然后关闭它。
+ 
+ 
+ A:可以试试在 block 里用到 viewController 都用 weakSelf __weak typeof(self) weakSelf = self;，这样 block 不会持有这个 viewController，当 pop 出去的时候自然就变成 nil 了。不过如果是单例的话就没办法。
+ */
 
 
 
