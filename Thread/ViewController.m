@@ -18,7 +18,7 @@
     [super viewDidLoad];
     // Do any additional setup after loading the view, typically from a nib.
     
-    
+    [self test5];
     
     
 }
@@ -171,8 +171,6 @@
         //重复队列是同步参数，会阻塞当前线程直到所有循环迭代完成，循环内的线程由第二个参数queue决定
         NSLog(@"----内重复队列完成");
     });
-    
-    
     
     NSLog(@"----外重复队列完成");
     
